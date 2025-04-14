@@ -60,7 +60,7 @@ std::vector<Point> st_pointsOnReflectorBand(const std::string& lasFilePath)
     {
         const liblas::Point& point = reader.GetPoint();
         double intensity = static_cast<double>(point.GetIntensity());
-        if(intensity == 255) // maximal inensity => the point is on the reflector strip band
+        if(intensity >= 65535) // maximal inensity => the point is on the reflector strip band
         {           
             double x = point.GetX();
             double y = point.GetY();
