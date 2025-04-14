@@ -94,6 +94,8 @@ int main()
 
     if(nP > 0)  
     {
+       // In this case, we make the approximation that centroid of the reflector band is close to the barycentre of points.
+       // Because we suppose that thes points of cloud have a good repartition on this band ("they "was pointing at a reflector strip band.")
         for (const Point& P : pointsReflector) 
             for (size_t i  =0 ; i <= 2 ;++i)
                 centroid[i] += P[i];
