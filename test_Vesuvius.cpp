@@ -1,17 +1,48 @@
 // Challenge 1 
 #include <liblas/liblas.hpp>
 #include <fstream>
+#include <iostream> // std::cout
 #include <vector>
 #include <array>
 #include <iostream>
 
-// Type pour stocker un point : x, y, z, intensité
-using PointData = std::array<double, 4>;
+class Point
+{
+   Point(double x = 0., double y = 0., double z = 0.){
+       m_coord[0] = x;
+       m_coord[1] = y;
+       m_coord[2] = z;
+   }    
+
+    double x(){return m_coord[0];}
+    double y(){return m_coord[1];}
+    double z(){return m_coord[2];}
+
+    Vec3 operator-(const Vec3& v) const {
+        return {x() - v.x(), y() - v.y(), z() - v.z()};
+    }
+
+    Vec3 cross(const Vec3& v) const {
+        return {
+            y() * v.z() - z() * v.y(),
+            z() * v.x() - x() * v.z(),
+            x() * v.y() - y() * v.x()
+        };
+    }
+
+    double dot(const Vec3& v) const {
+        return x() * v.x() + y() * v.y() + z() * v.z();
+    }
+    private:
+    std::array<double,3> m_coord;
+};
+using Vector = PointVector;
+
 
 static 
-std::vector<PointData> readLASPoints(const std::string& lasFilePath) 
+std::vector<Point> st_pointsOnReflectorBand(const std::string& lasFilePath) 
 {
-    std::vector<PointData> points;
+    std::vector<Point> points;
 
     std::ifstream ifs(lasFilePath, std::ios::in | std::ios::binary);
     if (!ifs) {
@@ -22,21 +53,78 @@ std::vector<PointData> readLASPoints(const std::string& lasFilePath)
     liblas::ReaderFactory readerFactory;
     liblas::Reader reader = readerFactory.CreateWithStream(ifs);
 
-    while (reader.ReadNextPoint()) {
+    while (reader.ReadNextPoint()) 
+    {
         const liblas::Point& point = reader.GetPoint();
-        double x = point.GetX();
-        double y = point.GetY();
-        double z = point.GetZ();
         double intensity = static_cast<double>(point.GetIntensity());
-
-        points.push_back({x, y, z, intensity});
+        if(intensity == 255) // maximal inensity => the point is on the reflector strip band
+        {           
+            double x = point.GetX();
+            double y = point.GetY();
+            double z = point.GetZ();
+            points.push_back({x, y, z});
+        }
     }
 
     return points;
 }
 
+double computeVolume(const std::vector<Point>& triangles)
+{
+    double volume = 0.0;
+    for (size_t i = 0; i < triangles.size(); i += 3)
+    {
+        const Point& a = triangles[i];
+        const Point& b = triangles[i + 1];
+        const Point& c = triangles[i + 2];
+        volume += (a.cross(b)).dot(c);
+    }
+    return std::abs(volume) / 6.0;
+}
+
 int main()
 {
-  return 0;
+    // Challenge 1 :
+    Point centroid; // by default = {0., 0.,0.};
+    std::vector<Point> pointsReflector = st_pointsOnReflectorBand("reflector.las");
+    size_t nP = pointsReflector.size();
+
+    if(nP > 0)  
+    {
+        for (const Point& P : pointsReflector) 
+            for (size_t i  =0 ; i <= 2 ;++i)
+                centroid[i] += P[i];
+
+         std::cout << "Centroid: (" << centroid[0] << ", " << centroid[1] << ", " << centroid[2] << ")\n";
+    }
+    else std::cout << "No detected points on reflector strip band.\n";
+
+        
+    // Challenge 2 :
+    std::ifstream file("mesh.stl");
+    if (!file)
+    {
+        std::cerr << "Cannot open mesh.stl\n";
+        return 1;
+    }
+
+    std::string line;
+    std::vector<Point> triangles;
+    while (std::getline(file, line))
+    {
+        if (line.find("vertex") != std::string::npos)
+        {
+            std::istringstream iss(line);
+            std::string dummy;
+            double x, y, z;
+            iss >> dummy >> x >> y >> z;
+            triangles.push_back({x, y, z});
+        }
+    }
+
+    double volume = computeVolume(triangles);
+    std::cout << " Volume of our mesh is : " << volume <<\n";
+    
+    return 0;
 }
 
